@@ -1,0 +1,112 @@
+<html>
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		<script type="text/javascript" src="jquery.js"></script>
+		<script type="text/javascript" src="websocket.js"></script>
+		<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+		<link rel="stylesheet" type="text/css" href="style.css" />
+	</head>
+	<body>
+		<div class="headline">Mathchat</div>
+		<div class="wrapper">
+		
+		</div>
+		<script type="text/javascript">
+			$(function() {
+				MathJax.Hub.Config({
+					tex2jax: {inlineMath: [['#','#'], ['\\(','\\)']]}
+				});
+				var loading = $('<div class="loading"></div>');
+				loading.append('<h1>Laden...</h1>');
+				loading.append('<p>Verbindung zum Server wird hergestellt.</p>');
+				$('div.wrapper').append(loading);
+				Websocket.addOpenListener(function() {
+					loading.remove();
+					var login = $('<div class="login"></div>');
+					login.append('<h1>Benutzername</h1>');
+					login.append('<p>Hier können Sie einen Benutzernamen auswählen.</p>');
+					var user = $('<input type="text" style="width: 340px;">').appendTo(login);
+					var button = $('<button>Go!</button>').appendTo(login);
+					$('div.wrapper').append(login);
+					var logon = function() {
+						Websocket.send("Username", {
+							username : user.val()
+						}, function(obj) {
+							if(obj.okay) {
+								var msgid = 0;
+								var left = $('<div class="left"></div>').appendTo('div.wrapper');
+								var right = $('<div class="right"></div>').appendTo('div.wrapper');
+								var chatbox = $('<div class="chatbox"></div>').appendTo($('<div class="chatboxwrapper"></div>').appendTo(left));
+								var userlistdiv = $('<ul></ul>').appendTo($('<div class="userlist"></div>').appendTo(right));
+								$('<div class="info"></div>').appendTo(right);
+								var input = $('<textarea></textarea>').appendTo($('<div class="textar"></div>').appendTo(left));
+								var userlist = [];
+								function updateUserlist() {
+									console.log(userlist);
+									userlistdiv.html("");
+									for(var i = 0; i < userlist.length; i++) {
+										var user = userlist[i];
+										$('<li>' + user + '</li>').appendTo(userlistdiv);
+									}
+								}
+								Websocket.send("Userlist", {}, function(obj) {
+									userlist = obj.users;
+									updateUserlist();
+								});
+								Websocket.addListener("Connect", function(obj) {
+									userlist.push(obj.user);
+									updateUserlist();
+								});
+								Websocket.addListener("Disconnect", function(obj) {
+									userlist.splice(userlist.indexOf(obj.user), 1);
+									updateUserlist();
+								});
+								Websocket.addListener("Message", function(obj) {
+									var date = new Date();
+									var h = date.getHours();
+									var m = date.getMinutes();
+									var s = date.getSeconds();
+									if(h < 10) h = "0"+h;
+									if(m < 10) m = "0"+m;
+									if(s < 10) s = "0"+s;
+									var msgdiv = $('<div class="message"></div>').appendTo(chatbox);
+									msgdiv.append('<div class="username">' + obj.user + '</div>');
+									msgdiv.append('<div class="text" id="msg' + msgid + '">' + obj.msg + '</div>');
+									msgdiv.append('<div class="time">' + h + ":" + m + ":" + s + '</div>');
+									MathJax.Hub.Queue(["Typeset",MathJax.Hub,"msg"+msgid]);
+									msgid++;
+								});
+								login.remove();
+								input.keyup(function(e) {
+									if(e.which == 13) {
+										Websocket.send("Message", {
+											msg : input.val()
+										});
+										input.val("");
+									}
+								});
+							}
+							else {
+								user.css({
+									"background-color" : "rgb(255, 200, 200)"
+								});
+							}
+						});
+					};
+					button.click(logon);
+					user.keyup(function(e) {
+						if(e.which == 13) logon();
+						user.css({
+							"background-color" : "rgb(220, 220, 255)"
+						});
+					})
+					user.focus(function(e) {
+						user.css({
+							"background-color" : "rgb(220, 220, 255)"
+						});
+					});
+				});
+			});
+		</script>
+	</body>
+</html>
