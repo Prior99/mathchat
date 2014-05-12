@@ -6,24 +6,28 @@ var Websocket = require('./websocket');
 var clients = [];
 var usernames = [];
 
-(new WebSocketServer({host: '0.0.0.0',port: port})).on('connection', function(ws) {
-	ws = new Websocket(ws);
-	clients.push(ws);
-	ws.addCloseListener(function() {
-		clients.splice(clients.indexOf(ws), 1);
-		usernames.splice(usernames.indexOf(ws.username), 1);
+var ui = 0;
+
+function Client(wsc) {
+	var websocket = new Websocket(wsc);
+	var username = null;
+	this.uj = ui++;
+	clients.push(websocket);
+	websocket.addCloseListener(function() {
+		clients.splice(clients.indexOf(websocket), 1);
+		usernames.splice(usernames.indexOf(username), 1);
 		for(var i = 0; i < clients.length; i++) {
 			var w = clients[i];
 			w.send("Disconnect", {
-				user : ws.username
+				user : username
 			});
 		}
 	});
-	ws.addListener("Username", function(obj) {
+	websocket.addListener("Username", function(obj) {
 		var okay;
-		if(ws.username == undefined && obj.username.length >= 3 && obj.username.length <= 12) {
+		if(username == null && obj.username.length >= 3 && obj.username.length <= 12) {
 			if(usernames.indexOf(obj.username) == -1) {
-				ws.username = obj.username;
+				username = obj.username;
 				for(var i = 0; i < clients.length; i++) {
 					var w = clients[i];
 					w.send("Connect", {
@@ -43,19 +47,26 @@ var usernames = [];
 			okay: okay
 		}
 	});
-	ws.addListener("Userlist", function() {
+	websocket.addListener("Userlist", function() {
 		return {
 			users: usernames
 		};
 	});
-	ws.addListener("Message", function(obj) {
-		if(ws.username === undefined || obj.msg === "") return;
+	websocket.addListener("Message", function(obj) {
+		if(username === null || obj.msg === undefined || obj.msg.trim() === "") return;
 		for(var i = 0; i < clients.length; i++) {
 			var w = clients[i];
 			w.send("Message", {
-				user : ws.username,
+				user : username,
 				msg : obj.msg
 			});
 		}
 	});
+}
+
+(new WebSocketServer({
+	host: '0.0.0.0',
+	port: port
+})).on('connection', function(ws) {
+	new Client(ws);
 });

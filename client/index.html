@@ -106,7 +106,6 @@
 									}
 									chatbox.scrollTop(chatbox[0].scrollHeight);
 									msgdiv.css({opacity: 1});
-									
 								}
 								Websocket.send("Userlist", {}, function(obj) {
 									userlist = obj.users;
