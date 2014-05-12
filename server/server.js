@@ -2,9 +2,10 @@ var port = 7834;
 
 var WebSocketServer = require('ws').Server;
 var Websocket = require('./websocket');
-
+var Queue = require('./limited');
 var clients = [];
 var usernames = [];
+var log = new Queue(100);
 
 var ui = 0;
 
@@ -52,15 +53,31 @@ function Client(wsc) {
 			users: usernames
 		};
 	});
+	websocket.addListener("Log", function() {
+		var arr = [];
+		for(var i = 0; i < log.length; i++) {
+			arr.push(log.get(i));
+		}
+		return {
+			log : arr
+		}
+	});
 	websocket.addListener("Message", function(obj) {
 		if(username === null || obj.msg === undefined || obj.msg.trim() === "") return;
+		var date = (new Date()).getTime();
 		for(var i = 0; i < clients.length; i++) {
 			var w = clients[i];
 			w.send("Message", {
 				user : username,
-				msg : obj.msg
+				msg : obj.msg,
+				time : date
 			});
 		}
+		log.push({
+			user: username,
+			msg: obj.msg,
+			time: date
+		});
 	});
 }
 

@@ -1,0 +1,22 @@
+var Queue = require("./limited");
+
+var q = new Queue(5);
+q.push(1);
+q.push(2);
+q.push(3);
+q.push(4);
+q.push(5);
+console.log("-------------");
+for(var i = 0; i < q.length; i++) console.log(q.get(i));
+q.push(6);
+console.log("-------------");
+for(var i = 0; i < q.length; i++) console.log(q.get(i));
+q.push(7);
+console.log("-------------");
+for(var i = 0; i < q.length; i++) console.log(q.get(i));
+q.push(8);
+console.log("-------------");
+for(var i = 0; i < q.length; i++) console.log(q.get(i));
+q.push(9);
+console.log("-------------");
+for(var i = 0; i < q.length; i++) console.log(q.get(i));

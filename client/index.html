@@ -32,9 +32,9 @@
 		<script type="text/javascript">
 			$(function() {
 				var notification = new Audio("drip.ogg");
-				MathJax.Hub.Config({
+				/*MathJax.Hub.Config({
 					tex2jax: {inlineMath: [['#','#'], ['\\(','\\)']]}
-				});
+				});*/
 				var loading = $('<div class="loading box"></div>');
 				loading.append('<h1>Laden...</h1>');
 				loading.append('<p>Verbindung zum Server wird hergestellt.</p>');
@@ -87,9 +87,9 @@
 										string = string.replace(needle, replace);
 									return string;
 								}
-								function writeMessage(username, message, note) {
+								function writeMessage(username, message, date, note) {
+									date = new Date(date);
 									notification.play();
-									var date = new Date();
 									var h = date.getHours();
 									var m = date.getMinutes();
 									var s = date.getSeconds();
@@ -101,7 +101,7 @@
 									msgdiv.append('<div class="text" id="msg' + msgid + '">' + replaceAll(escapeHtml(message), "\n", "<br />") + '</div>');
 									msgdiv.append('<div class="time">' + h + ":" + m + ":" + s + '</div>');
 									msgdiv.append('<div style="clear: both;"></div>');
-									MathJax.Hub.Queue(["Typeset",MathJax.Hub,"msg"+msgid]);
+									//MathJax.Hub.Queue(["Typeset",MathJax.Hub,"msg"+msgid]);
 									msgid++;
 									if(note !== undefined && note) {
 										msgdiv.css({"font-style" : "italic"});
@@ -114,17 +114,17 @@
 									updateUserlist();
 								});
 								Websocket.addListener("Connect", function(obj) {
-									writeMessage("Note", "Benutzer \"" + obj.user + "\" schloss sich dem Chat an.", true);
+									writeMessage("Note", "Benutzer \"" + obj.user + "\" schloss sich dem Chat an.", (new Date()).getTime(), true);
 									userlist.push(obj.user);
 									updateUserlist();
 								});
 								Websocket.addListener("Disconnect", function(obj) {
-									writeMessage("Note", "Benutzer \"" + obj.user + "\" hat die Verbindung beendet.", true);
+									writeMessage("Note", "Benutzer \"" + obj.user + "\" hat die Verbindung beendet.", (new Date()).getTime(),  true);
 									userlist.splice(userlist.indexOf(obj.user), 1);
 									updateUserlist();
 								});
 								Websocket.addListener("Message", function(obj) {
-									writeMessage(obj.user, obj.msg);
+									writeMessage(obj.user, obj.msg, obj.time);
 								});
 								login.remove();
 								input.keyup(function(e) {
