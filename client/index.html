@@ -12,17 +12,35 @@
 		
 		</div>
 		<script type="text/javascript">
+		(function ($, undefined) {
+			$.fn.getCursorPosition = function() {
+				var el = $(this).get(0);
+				var pos = 0;
+				if('selectionStart' in el) {
+					pos = el.selectionStart;
+				} else if('selection' in document) {
+					el.focus();
+					var Sel = document.selection.createRange();
+					var SelLength = document.selection.createRange().text.length;
+					Sel.moveStart('character', -el.value.length);
+					pos = Sel.text.length - SelLength;
+				}
+				return pos;
+			}
+		})(jQuery);
+		</script>
+		<script type="text/javascript">
 			$(function() {
 				MathJax.Hub.Config({
 					tex2jax: {inlineMath: [['#','#'], ['\\(','\\)']]}
 				});
-				var loading = $('<div class="loading"></div>');
+				var loading = $('<div class="loading box"></div>');
 				loading.append('<h1>Laden...</h1>');
 				loading.append('<p>Verbindung zum Server wird hergestellt.</p>');
 				$('div.wrapper').append(loading);
 				Websocket.addOpenListener(function() {
 					loading.remove();
-					var login = $('<div class="login"></div>');
+					var login = $('<div class="login box"></div>');
 					login.append('<h1>Benutzername</h1>');
 					login.append('<p>Hier können Sie einen Benutzernamen auswählen.</p>');
 					var user = $('<input type="text" style="width: 340px;">').appendTo(login);
@@ -37,8 +55,8 @@
 								var left = $('<div class="left"></div>').appendTo('div.wrapper');
 								var right = $('<div class="right"></div>').appendTo('div.wrapper');
 								var chatbox = $('<div class="chatbox"></div>').appendTo($('<div class="chatboxwrapper"></div>').appendTo(left));
-								var userlistdiv = $('<ul></ul>').appendTo($('<div class="userlist"></div>').appendTo(right));
-								$('<div class="info"></div>').appendTo(right);
+								var userlistdiv = $('<ul></ul>').appendTo($('<div class="userlist">Benutzer:</div>').appendTo(right));
+								/*$('<div class="info">Text zwischen zwei # wird als Latex verarbeitet. (Beispiel: #\\frac{1}{2}#)</div>').appendTo(right);*/
 								var input = $('<textarea></textarea>').appendTo($('<div class="textar"></div>').appendTo(left));
 								var userlist = [];
 								function updateUserlist() {
@@ -49,19 +67,26 @@
 										$('<li>' + user + '</li>').appendTo(userlistdiv);
 									}
 								}
-								Websocket.send("Userlist", {}, function(obj) {
-									userlist = obj.users;
-									updateUserlist();
-								});
-								Websocket.addListener("Connect", function(obj) {
-									userlist.push(obj.user);
-									updateUserlist();
-								});
-								Websocket.addListener("Disconnect", function(obj) {
-									userlist.splice(userlist.indexOf(obj.user), 1);
-									updateUserlist();
-								});
-								Websocket.addListener("Message", function(obj) {
+								var entityMap = {
+									"&": "&amp;",
+									"<": "&lt;",
+									">": "&gt;",
+									'"': '&quot;',
+									"'": '&#39;',
+									"/": '&#x2F;'
+								};
+
+								function escapeHtml(string) {
+									return String(string).replace(/[&<>"'\/]/g, function (s) {
+										return entityMap[s];
+									});
+								}
+								function replaceAll(string, needle, replace) {
+									while(string.indexOf(needle) != -1)
+										string = string.replace(needle, replace);
+									return string;
+								}
+								function writeMessage(username, message, note) {
 									var date = new Date();
 									var h = date.getHours();
 									var m = date.getMinutes();
@@ -70,19 +95,58 @@
 									if(m < 10) m = "0"+m;
 									if(s < 10) s = "0"+s;
 									var msgdiv = $('<div class="message"></div>').appendTo(chatbox);
-									msgdiv.append('<div class="username">' + obj.user + '</div>');
-									msgdiv.append('<div class="text" id="msg' + msgid + '">' + obj.msg + '</div>');
+									msgdiv.append('<div class="username">' + username + '</div>');
+									msgdiv.append('<div class="text" id="msg' + msgid + '">' + replaceAll(escapeHtml(message), "\n", "<br />") + '</div>');
 									msgdiv.append('<div class="time">' + h + ":" + m + ":" + s + '</div>');
+									msgdiv.append('<div style="clear: both;"></div>');
 									MathJax.Hub.Queue(["Typeset",MathJax.Hub,"msg"+msgid]);
 									msgid++;
+									if(note !== undefined && note) {
+										msgdiv.css({"font-style" : "italic"});
+									}
+									chatbox.scrollTop(chatbox[0].scrollHeight);
+									msgdiv.css({opacity: 1});
+									
+								}
+								Websocket.send("Userlist", {}, function(obj) {
+									userlist = obj.users;
+									updateUserlist();
+								});
+								Websocket.addListener("Connect", function(obj) {
+									writeMessage("Note", "Benutzer \"" + obj.user + "\" schloss sich dem Chat an.", true);
+									userlist.push(obj.user);
+									updateUserlist();
+								});
+								Websocket.addListener("Disconnect", function(obj) {
+									writeMessage("Note", "Benutzer \"" + obj.user + "\" hat die Verbindung beendet.", true);
+									userlist.splice(userlist.indexOf(obj.user), 1);
+									updateUserlist();
+								});
+								Websocket.addListener("Message", function(obj) {
+									writeMessage(obj.user, obj.msg);
 								});
 								login.remove();
 								input.keyup(function(e) {
-									if(e.which == 13) {
-										Websocket.send("Message", {
-											msg : input.val()
-										});
-										input.val("");
+									console.log(e);
+									if(e.which == 13 && ! e.ctrlKey && !e.shiftKey)
+									{
+											Websocket.send("Message", {
+												msg : input.val()
+											});
+											input.val("");
+									}
+									if((e.which == 13 || e.which == 10) && (e.ctrlKey || e.shiftKey)) {
+										var content = input.val();
+										var position = input.getCursorPosition();
+										var newContent = content.substr(0, position) + "\n" + content.substr(position);
+										input.val(newContent);
+										input.setCursorPosition(position + 1);
+										e.preventDefault();
+									}
+								});
+								input.keypress(function(e) {
+									if(e.which === 13) {
+										return false;
 									}
 								});
 							}

@@ -12,7 +12,6 @@ var usernames = [];
 	ws.addCloseListener(function() {
 		clients.splice(clients.indexOf(ws), 1);
 		usernames.splice(usernames.indexOf(ws.username), 1);
-		console.log("User left", usernames);
 		for(var i = 0; i < clients.length; i++) {
 			var w = clients[i];
 			w.send("Disconnect", {
@@ -33,7 +32,6 @@ var usernames = [];
 				}
 				usernames.push(obj.username);
 				okay = true;
-				console.log("User entered", usernames);
 			}
 			else {
 				okay = false;
@@ -51,7 +49,7 @@ var usernames = [];
 		};
 	});
 	ws.addListener("Message", function(obj) {
-		if(ws.username === undefined) return;
+		if(ws.username === undefined || obj.msg === "") return;
 		for(var i = 0; i < clients.length; i++) {
 			var w = clients[i];
 			w.send("Message", {
